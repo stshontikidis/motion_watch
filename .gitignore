@@ -1,1 +1,4 @@
 .venv/*
+motion.offset
+config.json
+__pycache__/*
