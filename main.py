@@ -50,7 +50,7 @@ def main():
     try:
         while True:
             if watcher.alert and not watcher.has_alerted:
-                mqtt_client.publish('motion/alert/baby_cam', payload='on')
+                mqtt_client.publish('alert/motion/baby_cam', payload='on')
                 watcher.has_alerted = True
 
             time.sleep(0.5)
