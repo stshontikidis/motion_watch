@@ -3,3 +3,4 @@ motion.offset
 config.json
 __pycache__/*
 run.sh
+*.log
