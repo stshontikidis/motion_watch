@@ -7,13 +7,14 @@ import pygtail
 
 class Watcher:
 
-    def __init__(self, log_file, offset_file, logger):
+    def __init__(self, log_file, offset_file, mqtt_client, logger):
         self.alert = False
         self.has_alerted = False
-        self.monitor = True
+        self.monitor = False
         self.exit = False
         self.offset_file = offset_file
 
+        self.mqtt_client = mqtt_client
         self.log_file = log_file
 
         expression = r'Baby Cam] MotionEvent type:(\w+) event:(\d+)'
@@ -44,18 +45,21 @@ class Watcher:
                 self.current_event = None
                 self.start_time = None
 
-        if current_event:
+        if self.current_event:
             self.logger.debug('current event {}'.format(current_event))
 
         if self.current_event and not self.alert and not self.has_alerted:
             time_diff = datetime.datetime.now() - self.start_time
             self.logger.debug('checking event {} again {}'.format(current_event, time_diff.total_seconds()))
+
             if time_diff.total_seconds() > 10:
                 self.alert = True
+                self.mqtt_client.publish('alert/motion/baby_cam', payload='on')
                 self.logger.debug('Alert threshold hit for event {}'.format(current_event))
 
     def run(self):
         self.monitor = True
+        self.mqtt_client.publish('status/scripts/motion_watch', payload='on')
 
         while not self.exit:
             if self.monitor:
@@ -71,13 +75,16 @@ class Watcher:
         self.monitor = True
         self.alert = False
         self.has_alerted = False
+        self.mqtt_client.publish('status/scripts/motion_watch', payload='on')
 
 
     def stop(self):
-        self.monitor = False
-
         try:
             os.remove(self.offset_file)
         except FileNotFoundError:
             pass
+
+        self.monitor = False
+        self.mqtt_client.publish('status/scripts/motion_watch', payload='off')
+
 

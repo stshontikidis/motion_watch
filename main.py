@@ -1,6 +1,7 @@
 import json
 import logging
 from logging.handlers import RotatingFileHandler
+import signal
 import threading
 import time
 
@@ -39,8 +40,9 @@ def main():
         config = json.load(file)
 
     logger = logging_setup(config)
+    mqtt_client = mqtt.Client('motion_watch')
 
-    watcher = motion_watch.Watcher(config['log_file'], config['offset_file'], logger)
+    watcher = motion_watch.Watcher(config['log_file'], config['offset_file'], mqtt_client, logger)
     watch_thread = threading.Thread(target=watcher.run)
 
     # The callback for when the client receives a CONNACK response from the server.
@@ -52,47 +54,40 @@ def main():
 
     def on_message(client, userdata, msg):
         if msg.payload.decode('utf-8') == 'on':
-            if watch_thread.is_alive():
-                logger.info('Starting watcher on active thread')
-                watcher.start()
-            else:
-                # need to find out how to handle excptions in that thread
-                try:
-                    logger.info('Starting watcher on new thread')
-                    watch_thread.start()
-                except Exception as e:
-                    logger.error(e)
 
-        elif msg.payload.decode('utf-8') == 'off' and watch_thread.is_alive():
+            try:
+                watch_thread.start()
+                logger.info('Starting watcher on new thread')
+            except RuntimeError:
+                watcher.start()
+                logger.info('Starting watcher on active thread')
+            except Exception as e:
+                logger.error(e)
+
+        elif msg.payload.decode('utf-8') == 'off':
             logger.info('Stopping watcher')
             watcher.stop()
 
     def on_disconnect(client, userdata, rc):
         pass
 
-    mqtt_client = mqtt.Client('motion_watch')
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     mqtt_client.username_pw_set(config['mqtt_user'], config['mqtt_password'])
+    mqtt_client.will_set('status/scripts/motion_watch', payload='died')
 
     mqtt_client.connect(config['mqtt_host'], config['mqtt_port'])
-    mqtt_client.loop_start()
 
-    try:
-        while True:
-            if watcher.alert and not watcher.has_alerted:
-                mqtt_client.publish('alert/motion/baby_cam', payload='on')
-                watcher.has_alerted = True
-                logger.info('Alert message sent')
-
-            time.sleep(0.5)
-    except KeyboardInterrupt:
-        mqtt_client.loop_stop()
-        mqtt_client.disconnect()
+    def die_with_grace():
         watcher.stop()
         watcher.exit = True
+        mqtt_client.disconnect()
+        logger.info('Program exiting')
+        exit()
 
-    logger.info('Program exiting')
+    signal.signal(signal.SIGTERM, die_with_grace)
+
+    mqtt_client.loop_forever()
 
 
 if __name__ == "__main__":
