@@ -83,6 +83,7 @@ def main():
         watcher.stop()
         watcher.exit = True
         mqtt_client.disconnect()
+
         logger.info('Program exiting')
         exit()
 

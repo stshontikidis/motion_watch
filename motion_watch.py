@@ -24,6 +24,8 @@ class Watcher:
         self.exit = False
         self.offset_file = offset_file
 
+        self.current_event = None
+
         self.mqtt_client = mqtt_client
         self.log_file = log_file
 
