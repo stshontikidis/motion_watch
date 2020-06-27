@@ -18,8 +18,6 @@ class Event:
 class Watcher:
 
     def __init__(self, log_file, offset_file, mqtt_client, logger):
-        self.alert = False
-        self.has_alerted = False
         self.monitor = False
         self.exit = False
         self.offset_file = offset_file
@@ -46,12 +44,8 @@ class Watcher:
 
             if match and match.group(1) == 'start':
                 self.current_event = Event(match.group(2))
-
-                self.has_alerted = False
-                self.alert = False
             elif match and match.group(1) == 'stop':
                 self.current_event = None
-                self.start_time = None
 
         if self.current_event:
             self.logger.debug('current event {}'.format(self.current_event))
@@ -61,10 +55,10 @@ class Watcher:
             self.logger.debug('checking event {} again {}'.format(self.current_event, time_diff.total_seconds()))
 
             if time_diff.total_seconds() > 10:
-                self.alert = True
-                self.current_event = None
                 self.mqtt_client.publish('alert/motion/baby_cam', payload='on')
+
                 self.logger.info('Alert threshold hit for event {}'.format(self.current_event.id))
+                self.current_event = None
 
     def run(self):
         self.monitor = True
@@ -82,10 +76,8 @@ class Watcher:
             pass
 
         self.monitor = True
-        self.alert = False
-        self.has_alerted = False
+        self.current_event = None
         self.mqtt_client.publish('status/scripts/motion_watch', payload='on')
-
 
     def stop(self):
         try:
