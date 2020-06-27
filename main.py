@@ -56,9 +56,6 @@ def main():
         if msg.payload.decode('utf-8') == 'on':
 
             try:
-                watch_thread.start()
-                logger.info('Starting watcher on new thread')
-            except RuntimeError:
                 watcher.start()
                 logger.info('Starting watcher on active thread')
             except Exception as e:
@@ -79,17 +76,22 @@ def main():
 
     mqtt_client.connect(config['mqtt_host'], config['mqtt_port'])
 
+    watch_thread.start()
+
     def die_with_grace():
         watcher.stop()
         watcher.exit = True
+
+        mqtt_client.loop_stop()
         mqtt_client.disconnect()
 
         logger.info('Program exiting')
-        exit()
 
     signal.signal(signal.SIGTERM, die_with_grace)
 
-    mqtt_client.loop_forever()
+    mqtt_client.loop_start()
+    watch_thread.join()
+
 
 if __name__ == "__main__":
     main()
