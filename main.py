@@ -75,6 +75,7 @@ def main():
     mqtt_client.on_message = on_message
     mqtt_client.username_pw_set(config['mqtt_user'], config['mqtt_password'])
     mqtt_client.will_set('status/scripts/motion_watch', payload='died')
+    mqtt_client.enable_logger(logger=logger)
 
     mqtt_client.connect(config['mqtt_host'], config['mqtt_port'])
 
@@ -88,7 +89,6 @@ def main():
     signal.signal(signal.SIGTERM, die_with_grace)
 
     mqtt_client.loop_forever()
-
 
 if __name__ == "__main__":
     main()
