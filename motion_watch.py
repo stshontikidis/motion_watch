@@ -5,6 +5,16 @@ import time
 
 import pygtail
 
+
+class Event:
+
+    def __init__(self, _id):
+        self.id = _id
+        self.start_time = datetime.datetime.now()
+
+    def __repr__(self):
+        return '<Event ID {}>'.format(self.id)
+
 class Watcher:
 
     def __init__(self, log_file, offset_file, mqtt_client, logger):
@@ -20,9 +30,6 @@ class Watcher:
         expression = r'Baby Cam] MotionEvent type:(\w+) event:(\d+)'
         self.regex = re.compile(expression)
 
-        self.current_event = None
-        self.start_time = None
-
         self.logger = logger
 
     def watch(self):
@@ -36,8 +43,7 @@ class Watcher:
                 self.logger.debug('Match found {}'.format(match.group(0)))
 
             if match and match.group(1) == 'start':
-                self.current_event = match.group(2)
-                self.start_time = datetime.datetime.now()
+                self.current_event = Event(match.group(2))
 
                 self.has_alerted = False
                 self.alert = False
@@ -46,16 +52,17 @@ class Watcher:
                 self.start_time = None
 
         if self.current_event:
-            self.logger.debug('current event {}'.format(current_event))
+            self.logger.debug('current event {}'.format(self.current_event))
 
-        if self.current_event and not self.alert and not self.has_alerted:
-            time_diff = datetime.datetime.now() - self.start_time
-            self.logger.debug('checking event {} again {}'.format(current_event, time_diff.total_seconds()))
+        if self.current_event:
+            time_diff = datetime.datetime.now() - self.current_event.start_time
+            self.logger.debug('checking event {} again {}'.format(self.current_event, time_diff.total_seconds()))
 
             if time_diff.total_seconds() > 10:
                 self.alert = True
+                self.current_event = None
                 self.mqtt_client.publish('alert/motion/baby_cam', payload='on')
-                self.logger.debug('Alert threshold hit for event {}'.format(current_event))
+                self.logger.info('Alert threshold hit for event {}'.format(self.current_event.id))
 
     def run(self):
         self.monitor = True
