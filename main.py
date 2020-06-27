@@ -78,7 +78,8 @@ def main():
 
     watch_thread.start()
 
-    def die_with_grace():
+
+    def die_with_grace(sig_number, frame):
         watcher.stop()
         watcher.exit = True
 
@@ -92,6 +93,7 @@ def main():
     mqtt_client.loop_start()
     watch_thread.join()
 
+    return None
 
 if __name__ == "__main__":
     main()
