@@ -1,7 +1,9 @@
 import json
 import logging
 from logging.handlers import RotatingFileHandler
+import os
 import signal
+import sys
 import threading
 import time
 
@@ -35,6 +37,15 @@ def logging_setup(config):
     return app_log
 
 def main():
+    pid = str(os.getpid())
+    pid_file = "pid.out"
+
+    if os.path.isfile(pid_file):
+        print('Process already running or stuck pid file')
+        sys.exit(1)
+
+    open(pid_file, 'w').write(pid)
+
     config = None
     with open('config.json') as file:
         config = json.load(file)
@@ -89,19 +100,20 @@ def main():
 
     def die_with_grace(sig_number, frame):
         watcher.stop()
+        watcher.exit = True
 
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
 
-        watcher.exit = True
+        os.unlink(pid_file)
         logger.info('Program exiting')
+        sys.exit(1)
 
     signal.signal(signal.SIGTERM, die_with_grace)
 
     mqtt_client.loop_start()
     watch_thread.join()
 
-    return None
 
 if __name__ == "__main__":
     main()
