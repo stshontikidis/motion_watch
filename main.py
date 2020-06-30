@@ -60,7 +60,7 @@ def main():
     watcher = motion_watch.Watcher(camera_name, mqtt_client, logger, log_file=log_to_watch, offset_file=offset_file)
     watch_thread = threading.Thread(target=watcher.run)
 
-    command_topic = '{}/{}'.format(constants.COMMAND_TOPIC ,camera_name)
+    command_topic = '{}/{}'.format(constants.COMMAND_TOPIC ,camera_name.replace(' ', '_').lower())
 
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(client, userdata, flags, rc):
@@ -70,8 +70,9 @@ def main():
         client.subscribe(command_topic, 1)
 
     def on_message(client, userdata, msg):
+        logger.debug('Msg rescieved topic {} payload {}'.format(msg.topic, msg.payload))
 
-        if msg.topic.decode('utf-8') == command_topic:
+        if msg.topic == command_topic:
             if msg.payload.decode('utf-8') == 'on':
 
                 try:
