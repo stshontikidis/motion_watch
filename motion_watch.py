@@ -5,6 +5,11 @@ import time
 
 import pygtail
 
+import constants
+
+
+LOG_FILE = '/var/lib/unifi-video/logs/motion.log'
+OFFSET_FILE = 'motion_watch.offset'
 
 class Event:
 
@@ -17,17 +22,18 @@ class Event:
 
 class Watcher:
 
-    def __init__(self, log_file, offset_file, mqtt_client, logger):
+    def __init__(self, camera_name, mqtt_client, logger, log_file=LOG_FILE, offset_file=OFFSET_FILE):
         self.monitor = False
         self.exit = False
         self.offset_file = offset_file
+        self.camera_name = camera_name
 
         self.current_event = None
 
         self.mqtt_client = mqtt_client
         self.log_file = log_file
 
-        expression = r'Baby Cam] MotionEvent type:(\w+) event:(\d+)'
+        expression = r'{}] MotionEvent type:(\w+) event:(\d+)'.format(camera_name)
         self.regex = re.compile(expression)
 
         self.logger = logger
@@ -55,14 +61,14 @@ class Watcher:
             self.logger.debug('checking event {} again {}'.format(self.current_event, time_diff.total_seconds()))
 
             if time_diff.total_seconds() > 10:
-                self.mqtt_client.publish('alert/motion/baby_cam', payload='on')
+                self.mqtt_client.publish('{}/{}'.format(constants.ALERT_TOPIC, self.camera_name), payload='on')
 
                 self.logger.info('Alert threshold hit for event {}'.format(self.current_event.id))
                 self.current_event = None
 
     def run(self):
         self.monitor = True
-        self.mqtt_client.publish('status/scripts/motion_watch', payload='on')
+        self.mqtt_client.publish(constants.STATUS_TOPIC, payload='on')
 
         while not self.exit:
             if self.monitor:
@@ -77,7 +83,7 @@ class Watcher:
 
         self.monitor = True
         self.current_event = None
-        self.mqtt_client.publish('status/scripts/motion_watch', payload='on')
+        self.mqtt_client.publish(constants.STATUS_TOPIC, payload='on')
 
     def stop(self):
         try:

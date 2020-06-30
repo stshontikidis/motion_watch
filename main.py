@@ -7,8 +7,8 @@ import time
 
 import paho.mqtt.client as mqtt
 
+import constants
 import motion_watch
-
 
 def logging_setup(config):
     log_level = config.get('log_level')
@@ -42,28 +42,36 @@ def main():
     logger = logging_setup(config)
     mqtt_client = mqtt.Client('motion_watch')
 
-    watcher = motion_watch.Watcher(config['log_file'], config['offset_file'], mqtt_client, logger)
+    log_to_watch = config.get('log_file')
+    offset_file = config.get('offset_file')
+    camera_name = config['camera_name']
+
+    watcher = motion_watch.Watcher(camera_name, mqtt_client, logger, log_file=log_to_watch, offset_file=offset_file)
     watch_thread = threading.Thread(target=watcher.run)
+
+    command_topic = '{}/{}'.format(constants.COMMAND_TOPIC ,camera_name)
 
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(client, userdata, flags, rc):
         logger.info("Connected with result code "+str(rc))
 
         # reconnect then subscriptions will be renewed.
-        client.subscribe('switch/motion/baby_cam', 1)
+        client.subscribe(command_topic, 1)
 
     def on_message(client, userdata, msg):
-        if msg.payload.decode('utf-8') == 'on':
 
-            try:
-                watcher.start()
-                logger.info('Starting watcher on active thread')
-            except Exception as e:
-                logger.error(e)
+        if msg.topic.decode('utf-8') == command_topic:
+            if msg.payload.decode('utf-8') == 'on':
 
-        elif msg.payload.decode('utf-8') == 'off':
-            logger.info('Stopping watcher')
-            watcher.stop()
+                try:
+                    watcher.start()
+                    logger.info('Starting watcher on active thread')
+                except Exception as e:
+                    logger.error(e)
+
+            elif msg.payload.decode('utf-8') == 'off':
+                logger.info('Stopping watcher')
+                watcher.stop()
 
     def on_disconnect(client, userdata, rc):
         pass
@@ -71,7 +79,7 @@ def main():
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     mqtt_client.username_pw_set(config['mqtt_user'], config['mqtt_password'])
-    mqtt_client.will_set('status/scripts/motion_watch', payload='died')
+    mqtt_client.will_set(constants.STATUS_TOPIC, payload='died')
     mqtt_client.enable_logger(logger=logger)
 
     mqtt_client.connect(config['mqtt_host'], config['mqtt_port'])
@@ -81,11 +89,11 @@ def main():
 
     def die_with_grace(sig_number, frame):
         watcher.stop()
-        watcher.exit = True
 
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
 
+        watcher.exit = True
         logger.info('Program exiting')
 
     signal.signal(signal.SIGTERM, die_with_grace)
