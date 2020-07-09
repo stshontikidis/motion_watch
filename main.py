@@ -51,7 +51,7 @@ def main():
 
     logger = logging_setup(config)
     mqtt_client = mqtt.Client('motion_watch')
-    mqtt_client.
+
     log_to_watch = config.get('log_file')
     offset_file = config.get('offset_file')
     camera_name = config['camera_name']
