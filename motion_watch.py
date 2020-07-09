@@ -3,6 +3,7 @@ import os
 import re
 import time
 
+from paho.mqtt.client import Client
 import pygtail
 
 import constants
@@ -22,7 +23,7 @@ class Event:
 
 class Watcher:
 
-    def __init__(self, camera_name, mqtt_client, logger, log_file=LOG_FILE, offset_file=OFFSET_FILE):
+    def __init__(self, camera_name: str, mqtt_client: Client, logger, log_file=LOG_FILE, offset_file=OFFSET_FILE):
         self.monitor = False
         self.exit = False
         self.offset_file = offset_file
@@ -60,8 +61,9 @@ class Watcher:
             time_diff = datetime.datetime.now() - self.current_event.start_time
             self.logger.debug('checking event {} again {}'.format(self.current_event, time_diff.total_seconds()))
 
-            if time_diff.total_seconds() > 10:
-                self.mqtt_client.publish('{}/{}'.format(constants.ALERT_TOPIC, self.camera_name), payload='on')
+            if time_diff.total_seconds() > 20:
+                alert_topic = '{}/{}'.format(constants.ALERT_TOPIC, self.camera_name.lower().replace(' ', '_'))
+                self.mqtt_client.publish(alert_topic, payload='on')
 
                 self.logger.info('Alert threshold hit for event {}'.format(self.current_event.id))
                 self.current_event = None
