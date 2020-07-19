@@ -52,6 +52,7 @@ class Watcher:
             if match and match.group(1) == 'start':
                 self.current_event = Event(match.group(2))
             elif match and match.group(1) == 'stop':
+                self.mqtt_client.publish(alert_topic, payload='off')
                 self.current_event = None
 
         if self.current_event:
